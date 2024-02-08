@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flea Market Search</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <style>
+        body {
+            display: flex;
+            min-height: 100vh;
+            flex-direction: column;
+            justify-content: center;
+            background-color: #263238; /* Dark blue-grey */
+            color: #ffffff;
+        }
+        .container {
+            width: 90%;
+            max-width: 600px;
+            margin: auto;
+        }
+    </style>
+</head>
+<body>
+    <header class="page-header center-align">
+        <h1>Tarkov Price Checker</h1>
+    </header>
+    
+<div class="container">
+    <div class="input-field">
+        <input id="searchBox" type="text" class="white-text" onkeyup="performSearch()" placeholder="Search...">
+    </div>
+    <div id="results"></div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+<script src="/static/script.js" defer></script>
+<script>
+    window.onload = function() {
+      document.getElementById('searchBox').focus();
+    };
+  </script>
+  
+</body>
+</html>
