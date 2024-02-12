@@ -1,0 +1,40 @@
+.results-table {
+  width: 100%; /* Adjust the width to fit the container */
+  border-collapse: collapse;
+  background-color: #2A2A2A;
+}
+
+.results-table th {
+  padding: 15px; /* Reduce padding for a more compact table */
+  border: 1px solid #747474;
+  text-align: left; /* Align text to the left */
+}
+
+.results-table td {
+  padding: 40px;
+  border: 1px solid #424242;
+  text-align: left; /* Align text to the left */
+}
+
+.results-table th {
+  background-color: #333;
+  color: #e0e0e0;
+}
+
+.results-table tr:nth-child(even) {
+  background-color: #1f1f1f;
+}
+
+.results-table tr:hover {
+  background-color: #2e4736;
+}
+
+.results-table img {
+  width: auto;
+  height: 50px;
+  border-radius: 4px;
+}
+
+.results-table tr.result-row {
+  margin-bottom: 0; /* Remove margin-bottom as it's not applicable to table rows */
+}

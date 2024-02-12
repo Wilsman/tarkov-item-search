@@ -1,0 +1,109 @@
+/* Results container */
+.results-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px;
+  /* background-color: #2A2A2A; */
+}
+
+@media (max-width: 767px) {
+  body.search-active {
+    margin-top: 50px;
+  }
+}
+
+.input-field {
+  position: relative;
+  width: 100%; /* This will make it fill the width of the screen */
+}
+
+#searchBox {
+  width: calc(100% - 30px); /* Subtract the width of the clear button and some padding */
+}
+
+.container.top {
+  margin-top: 0;
+}
+
+#clearButton {
+  position: absolute;
+  right: 5px; /* Adjust the position to your liking */
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #fff; /* Adjust the color to your liking */
+  cursor: pointer;
+}
+
+/* Item Card */
+.item-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 15px;
+  text-align: center;
+  /* background-color: #333; */
+  color: #e0e0e0;
+  margin: 5px 0;
+  width: 80%;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+
+.item-card:hover {
+  background-color: #444; /* Change this color to your liking */
+  transition: background-color 0.3s ease; /* This will animate the color change */
+}
+
+.item-card img {
+  width: 90px;
+  height: auto;
+  margin-bottom: 5px;
+  border-radius: 4px;
+}
+
+.item-card p {
+  margin: 4px 0;
+  font-size: 1rem;
+  font-weight: 300;
+  color: #ffffff;
+}
+
+.item-card p.item-name {
+  font-size: 1.2rem;
+  font-weight: 500;
+  margin-bottom: 5px;
+}
+
+.item-card p.price {
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: #F1C40F;
+}
+
+.item-card p.trader-info {
+  font-size: 1rem;
+  color: #bbb;
+  margin-bottom: 5px;
+  border-bottom: 1px solid #444;
+  padding-bottom: 10px;
+}
+
+/* Divider for item cards */
+.item-card hr.divider {
+  border: 0;
+  height: 1px;
+  background-image: linear-gradient(to right, #333, #555, #333);
+  width: 90%;
+  margin: 10px auto;
+}
+
+@media (max-width: 600px) {
+  .item-card {
+    width: 95%;
+  }
+}
