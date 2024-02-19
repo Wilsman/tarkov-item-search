@@ -40,7 +40,6 @@ document.addEventListener("DOMContentLoaded", (event) => {
 });
 
 function clearSearch() {
-  í;
   document.getElementById("searchBox").value = "";
   performSearch(); // Call performSearch to update the results
 }
