@@ -107,3 +107,29 @@
     width: 95%;
   }
 }
+
+.boss-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: Arial, sans-serif;
+  color: #e0e0e0; /* Same text color as .item-card */
+}
+
+.boss-table th, .boss-table td {
+  border: 1px solid #444; /* Darker border color to match the theme */
+  padding: 8px;
+  text-align: left;
+}
+
+.boss-table th {
+  background-color: #333; /* Same background color as .item-card */
+  color: #F1C40F; /* Same text color as .price */
+}
+
+.boss-table tr:nth-child(even) {
+  background-color: #2A2A2A; /* Same background color as commented out .results-container */
+}
+
+.boss-table tr:hover {
+  background-color: #444; /* Same hover color as .item-card:hover */
+}

@@ -41,6 +41,60 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/map_bosses")
+def map_bosses():
+    def run_query(query):
+        headers = {"Content-Type": "application/json"}
+        response = requests.post(
+            "https://api.tarkov.dev/graphql", headers=headers, json={"query": query}
+        )
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(
+                "Query failed to run by returning code of {}. {}".format(
+                    response.status_code, query
+                )
+            )
+
+    new_query = """
+    {
+        maps {
+            name
+            bosses {
+                boss {
+                    name
+                    normalizedName
+                }
+                spawnChance
+            }
+        }
+    }
+    """
+
+    result = run_query(new_query)
+
+    maps = result["data"]["maps"]
+
+    map_bosses = {}
+
+    for map in maps:
+        if map["name"] in ["The Lab", "Ground Zero"]:
+            continue
+        map_name = map["name"]
+        bosses = map["bosses"]
+        map_bosses[map_name] = []
+        for boss in bosses:
+            name = boss["boss"]["name"]
+            spawn_chance = boss["spawnChance"]
+            if name in ["Raider", "Rogue"]:
+                continue
+            spawn_chance_percentage = spawn_chance * 100
+            map_bosses[map_name].append((name, spawn_chance_percentage))
+
+    return jsonify(map_bosses)
+
+
 @app.route("/search")
 def perform_search():
     query = request.args.get("query", "").lower()

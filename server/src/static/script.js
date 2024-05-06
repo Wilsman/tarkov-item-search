@@ -5,6 +5,9 @@ document.addEventListener("DOMContentLoaded", (event) => {
   // Perform search with the default value
   performSearch();
 
+  // Fetch and display map bosses when the page loads
+  displayMapBosses();
+
   searchBox.addEventListener("keyup", function (event) {
     if (event.key === "Enter") {
       searchBox.blur(); // This will hide the keyboard on mobile devices
@@ -47,6 +50,13 @@ function clearSearch() {
 function performSearch() {
   let query = document.getElementById("searchBox").value;
   let container = document.querySelector(".container");
+
+  // If the search box is empty, display the map bosses
+  if (query.trim() === "") {
+    displayMapBosses();
+    return;
+  }
+
   fetch(`/search?query=${encodeURIComponent(query)}`)
     .then((response) => response.json())
     .then((data) => {
@@ -108,6 +118,43 @@ function performSearch() {
 
         resultsContainer.appendChild(itemCard);
       });
+    })
+    .catch((error) => {
+      console.error("Error:", error);
+    });
+}
+
+function displayMapBosses() {
+  fetch("/map_bosses")
+    .then((response) => response.json())
+    .then((data) => {
+      let resultsContainer = document.getElementById("results");
+      resultsContainer.innerHTML = ""; // Clear the results container
+
+      let title = document.createElement("h5");
+      title.textContent = "Boss Spawn Chances";
+      resultsContainer.appendChild(title);
+
+      let table = document.createElement("table");
+      table.classList.add("boss-table");
+
+      for (let mapName in data) {
+        let mapRow = document.createElement("tr");
+
+        let mapHeader = document.createElement("th");
+        mapHeader.textContent = mapName;
+        mapRow.appendChild(mapHeader);
+
+        for (let boss of data[mapName]) {
+          let bossCell = document.createElement("td");
+          bossCell.textContent = `${boss[0]} \n${boss[1]}%`;
+          mapRow.appendChild(bossCell);
+        }
+
+        table.appendChild(mapRow);
+      }
+
+      resultsContainer.appendChild(table);
     })
     .catch((error) => {
       console.error("Error:", error);
