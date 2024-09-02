@@ -5,14 +5,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Initialize search and display map bosses when the page loads
   performSearch();
-
-  // Fetch and display map bosses when the page loads
   displayMapBosses();
 
   // Save the toggle state to a cookie when it changes
   pveToggle.addEventListener("change", function () {
     document.cookie = `pveToggle=${this.checked};path=/;max-age=31536000`; // Save for 1 year
-    performSearch(); // Perform search again with the new toggle state
+    togglePveMode(this.checked);
+    performSearch();
   });
 
   // Read the cookie and set the toggle state when the page loads
@@ -21,6 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
     .find((row) => row.startsWith("pveToggle="));
   if (pveToggleState) {
     pveToggle.checked = pveToggleState.split("=")[1] === "true";
+    togglePveMode(pveToggle.checked);
   }
 
   // Debounce function
@@ -39,69 +39,67 @@ document.addEventListener("DOMContentLoaded", () => {
   // Enhanced search function with debounce
   const debouncedSearch = debounce(() => {
     performSearch();
-  }, 250); // Adjust the delay as needed
+  }, 250);
 
-  // Simplify event listener attachments
-  const events = [
-    {
-      target: searchBox,
-      type: "focus",
-      action: () => {
-        body.classList.add("search-active");
-        searchBox.value = ""; // Clear the text in the search box on focus
-      },
-    },
-    {
-      target: searchBox,
-      type: "input",
-      action: debouncedSearch,
-    },
-    {
-      target: searchBox,
-      type: "click",
-      action: () => {
-        if (searchBox.value !== "") {
-          searchBox.value = ""; // Clear the text in the search box on click
-          performSearch();
-        }
-      },
-    },
-    {
-      target: searchBox,
-      type: "blur",
-      action: () => body.classList.remove("search-active"),
-    },
-    {
-      target: window,
-      type: "focus",
-      condition: () => !/Mobi|Android/i.test(navigator.userAgent),
-      action: () => searchBox.focus(),
-    },
-    {
-      target: document,
-      type: "keydown",
-      condition: () => !/Mobi|Android/i.test(navigator.userAgent),
-      action: (event) => {
-        if (!searchBox.contains(event.target)) searchBox.focus();
-      },
-    },
-  ];
-
-  events.forEach(({ target, type, condition, action }) => {
-    target.addEventListener(type, (event) => {
-      if (!condition || condition(event)) {
-        if (action) action(event);
-      }
-    });
+  // Event listeners
+  searchBox.addEventListener("focus", () => {
+    body.classList.add("search-active");
+    searchBox.value = "";
   });
+  searchBox.addEventListener("input", debouncedSearch);
+  searchBox.addEventListener("click", () => {
+    if (searchBox.value !== "") {
+      searchBox.value = "";
+      performSearch();
+    }
+  });
+  searchBox.addEventListener("blur", () =>
+    body.classList.remove("search-active")
+  );
+
+  if (!/Mobi|Android/i.test(navigator.userAgent)) {
+    window.addEventListener("focus", () => searchBox.focus());
+    document.addEventListener("keydown", (event) => {
+      if (!searchBox.contains(event.target)) searchBox.focus();
+    });
+  }
+
+  const clearButton = document.getElementById("clearButton");
+  clearButton.addEventListener("click", clearSearch);
 });
+
+function clearSearch() {
+  const searchBox = document.getElementById("searchBox");
+  searchBox.value = "";
+  performSearch();
+}
+
+async function togglePveMode(isPve) {
+  try {
+    const response = await fetch("/toggle_pve", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ pve_toggle: isPve }),
+    });
+    const data = await response.json();
+    console.log("PvE mode toggled:", data.pve_mode);
+  } catch (error) {
+    console.error("Error toggling PvE mode:", error);
+  }
+}
 
 async function performSearch() {
   const query = document.getElementById("searchBox").value.trim();
   const container = document.querySelector(".container");
   const isPve = document.getElementById("pveToggle").checked;
+  const loadingThrobber = document.getElementById("loadingThrobber");
+  const resultsContainer = document.getElementById("results");
 
   if (!query) {
+    loadingThrobber.style.display = "flex";
+    resultsContainer.innerHTML = ""; // Clear previous results
     displayMapBosses();
     return;
   }
@@ -112,6 +110,7 @@ async function performSearch() {
     );
     const data = await response.json();
     updateSearchResults(data, container);
+    updateCacheTimes(data.cache_times);
   } catch (error) {
     console.error("Error:", error);
   }
@@ -134,14 +133,16 @@ function createItemCard(item) {
   const itemCard = document.createElement("div");
   itemCard.classList.add("item-card");
   itemCard.innerHTML = `
-    <img src="${item.icon}" alt="Item Icon" class="item-icon">
-    <p class="item-name">${item.shortName}</p>
-    <p class="price">${formatPrice(item.price)}</p>
-    <p class="trader-info">${
-      item.traderPriceCur
-    } ${item.traderPrice.toLocaleString()}<span class="trader-name"> - ${
-    item.traderName
-  }</span></p>
+    <a href="${item.wikiLink}" target="_blank" class="item-link">
+      <div class="item-content">
+        <img src="${item.icon}" alt="Item Icon" class="item-icon">
+        <div class="item-details">
+          <p class="item-name">${item.shortName}</p>
+          <p class="price">${formatPrice(item.price)}</p>
+          <p class="trader-info">${item.traderPriceCur} ${item.traderPrice.toLocaleString()}<span class="trader-name"> - ${item.traderName}</span></p>
+        </div>
+      </div>
+    </a>
     <hr class="divider">
   `;
   return itemCard;
@@ -160,24 +161,72 @@ function formatPrice(price) {
 }
 
 function displayMapBosses() {
+  const loadingThrobber = document.getElementById("loadingThrobber");
+  const resultsContainer = document.getElementById("results");
+
+  loadingThrobber.style.display = "flex";
+  resultsContainer.innerHTML = ""; // Clear previous results
+  
+  cycleLoadingMessages(); // Start cycling loading messages
+
   fetch("/map_bosses")
     .then((response) => response.json())
     .then((data) => {
-      // console.log(JSON.stringify(data)); // Print the full JSON to the console
-      const resultsContainer = document.getElementById("results");
       resultsContainer.innerHTML =
-        "<h5>Boss Spawn Chances</h5>" + createBossTable(data);
+        "<h5>Boss Spawn Chances</h5>" + createBossTable(data.map_bosses);
+      updateCacheTimes(data.cache_times);
+      loadingThrobber.style.display = "none";
     })
-    .catch((error) => console.error("Error:", error));
+    .catch((error) => {
+      console.error("Error:", error);
+      resultsContainer.innerHTML =
+        "<p>Error loading boss data. Please try again.</p>";
+      loadingThrobber.style.display = "none";
+    });
 }
 
-function createBossTable(data) {
+function createBossTable(mapBosses) {
   let tableHTML = '<table class="boss-table">';
-  for (let mapName in data) {
-    tableHTML += `<tr><th>${mapName}</th>${data[mapName]
+  for (let mapName in mapBosses) {
+    tableHTML += `<tr><th>${mapName}</th>${mapBosses[mapName]
       .map((boss) => `<td>${boss[0]} \n${boss[1]}%</td>`)
       .join("")}</tr>`;
   }
   tableHTML += "</table>";
   return tableHTML;
+}
+
+function updateCacheTimes(cacheTimes) {
+  const cacheTimesContainer = document.getElementById("cacheTimes");
+  if (cacheTimesContainer) {
+    cacheTimesContainer.innerHTML = `
+      <p>PvE Cache: ${getCacheTimeString(cacheTimes["item_cache_pve.json"])}</p>
+      <p>PvP Cache: ${getCacheTimeString(cacheTimes["item_cache_pvp.json"])}</p>
+      <p>Map Bosses Cache: ${getCacheTimeString(cacheTimes["map_bosses_cache.json"])}</p>
+    `;
+  }
+}
+
+function getCacheTimeString(cacheTime) {
+  if (cacheTime && cacheTime.formatted && cacheTime.relative) {
+    return `${cacheTime.formatted} (${cacheTime.relative})`;
+  }
+  return "Not available";
+}
+
+function cycleLoadingMessages() {
+  const messages = [
+    "Loading boss data...",
+    "Scanning the maps...",
+    "Checking spawn rates...",
+    "Analyzing boss locations...",
+    "Preparing intel..."
+  ];
+  let index = 0;
+  const loadingText = document.querySelector(".loading-throbber p");
+  
+  setInterval(() => {
+    loadingText.textContent = messages[index];
+    index = (index + 1) % messages.length;
+  }, 2000); // Change message every 2 seconds
 }

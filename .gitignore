@@ -166,3 +166,4 @@ cython_debug/
 # Custom files
 server/src/item_cache_pve.json
 server/src/item_cache_pvp.json
+server/src/map_bosses_cache.json
