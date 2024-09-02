@@ -18,22 +18,50 @@ app.config["DEBUG"] = os.environ.get("FLASK_DEBUG")
 CACHE_FILE = "item_cache.json"
 CACHE_TIME = 3600  # Cache duration in seconds
 
+# Define a global variable for the PvE toggle state
+pve_mode_enabled = True  # Default value
 
-def fetch_and_cache_items():
+
+def fetch_and_cache_items(pve_toggle):
+    cache_file = "item_cache_pve.json" if pve_toggle else "item_cache_pvp.json"
     if (
-        not os.path.exists(CACHE_FILE)
-        or time.time() - os.path.getmtime(CACHE_FILE) >= CACHE_TIME
+        not os.path.exists(cache_file)
+        or time.time() - os.path.getmtime(cache_file) >= CACHE_TIME
     ):
         headers = {"x-api-key": os.environ.get("API_KEY")}
-        response = requests.get(
-            "https://api.tarkov-market.app/api/v1/items/all", headers=headers
+        url = (
+            "https://api.tarkov-market.app/api/v1/pve/items/all"
+            if pve_toggle
+            else "https://api.tarkov-market.app/api/v1/items/all"
         )
+        print(f"Fetching items from {url}")
+        response = requests.get(url, headers=headers)
         if response.status_code == 200:
             items = response.json()
-            with open(CACHE_FILE, "w") as cache:
+            with open(cache_file, "w") as cache:
                 json.dump(items, cache)
         else:
             raise Exception(f"Failed to fetch items: {response.status_code}")
+
+
+# Call the function for both PVP and PVE at the start
+fetch_and_cache_items(True)  # For PVE
+fetch_and_cache_items(False)  # For PVP
+
+
+@app.route("/toggle_pve", methods=["POST"])
+def toggle_pve():
+    global pve_mode_enabled  # Declare the use of the global variable
+    data = request.get_json()
+    pve_mode_enabled = data.get("pve_toggle", True)
+    print(f"pve_toggle updated to: {pve_mode_enabled}")
+
+    # # Delete the cache file if it exists
+    # cache_file = "item_cache_pve.json" if pve_mode_enabled else "item_cache_pvp.json"
+    # if os.path.exists(cache_file):
+    #     os.remove(cache_file)
+
+    return jsonify({"status": "success"})
 
 
 @app.route("/")
@@ -89,6 +117,8 @@ def map_bosses():
             spawn_chance = boss["spawnChance"]
             if name in ["Raider", "Rogue"]:
                 continue
+            if name == "Death Knight":
+                name = "Goons"  # Modify the name here
             spawn_chance_percentage = spawn_chance * 100
             map_bosses[map_name].append((name, spawn_chance_percentage))
 
@@ -98,31 +128,26 @@ def map_bosses():
 @app.route("/search")
 def perform_search():
     query = request.args.get("query", "").lower()
+    pve_mode = request.args.get("pve", "false").lower() == "true"
 
-    # Try to load from cache first
-    try:
-        with open(CACHE_FILE, "r") as cache:
-            last_fetch_time = os.path.getmtime(CACHE_FILE)
-            items = json.load(cache)
-            using_cache = time.time() - last_fetch_time < CACHE_TIME
-    except FileNotFoundError:
-        items = []
-        using_cache = False
+    cache_file = "item_cache_pve.json" if pve_mode else "item_cache_pvp.json"
 
-    if using_cache:
-        print(
-            "Using cached data",
-            datetime.fromtimestamp(last_fetch_time).strftime("%Y-%m-%d %H:%M:%S"),
-        )
+    def load_items_from_cache():
+        try:
+            with open(cache_file, "r") as cache:
+                last_fetch_time = os.path.getmtime(cache_file)
+                items = json.load(cache)
+                return items, time.time() - last_fetch_time < CACHE_TIME
+        except (FileNotFoundError, json.JSONDecodeError):
+            return [], False
 
-    # Fetch and cache if not using cache
+    items, using_cache = load_items_from_cache()
+
     if not using_cache:
-        fetch_and_cache_items()
-        with open(CACHE_FILE, "r") as cache:
-            items = json.load(cache)
+        fetch_and_cache_items(pve_mode)
+        items, _ = load_items_from_cache()
         print("Fetched and cached data")
 
-    # Filter the cached items based on the query
     filtered_items = [
         {
             "name": item["name"],
@@ -140,9 +165,8 @@ def perform_search():
         if query in item["name"].lower()
     ][
         :20
-    ]  # Slice the first 15 items
+    ]  # Correctly slice the first 20 items
 
-    # Add a flag to the response indicating if the data is from cache
     return jsonify({"items": filtered_items, "using_cache": using_cache})
 
 

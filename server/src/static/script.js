@@ -1,162 +1,183 @@
-document.addEventListener("DOMContentLoaded", (event) => {
-  let searchBox = document.getElementById("searchBox");
-  let body = document.querySelector("body");
+document.addEventListener("DOMContentLoaded", () => {
+  const searchBox = document.getElementById("searchBox");
+  const body = document.querySelector("body");
+  const pveToggle = document.getElementById("pveToggle");
 
-  // Perform search with the default value
+  // Initialize search and display map bosses when the page loads
   performSearch();
 
   // Fetch and display map bosses when the page loads
   displayMapBosses();
 
-  searchBox.addEventListener("keyup", function (event) {
-    if (event.key === "Enter") {
-      searchBox.blur(); // This will hide the keyboard on mobile devices
-      performSearch();
-    }
+  // Save the toggle state to a cookie when it changes
+  pveToggle.addEventListener("change", function () {
+    document.cookie = `pveToggle=${this.checked};path=/;max-age=31536000`; // Save for 1 year
+    performSearch(); // Perform search again with the new toggle state
   });
 
-  searchBox.addEventListener("focus", function () {
-    body.classList.add("search-active");
-    searchBox.value = ""; // Clear the search box when it is focused
-    performSearch(); // Call performSearch to update the results
-  });
-
-  searchBox.addEventListener("blur", function () {
-    body.classList.remove("search-active");
-  });
-
-  if (!/Mobi|Android/i.test(navigator.userAgent)) {
-    window.addEventListener("focus", function () {
-      searchBox.focus();
-      performSearch(); // Perform search with the empty query
-    });
+  // Read the cookie and set the toggle state when the page loads
+  const pveToggleState = document.cookie
+    .split("; ")
+    .find((row) => row.startsWith("pveToggle="));
+  if (pveToggleState) {
+    pveToggle.checked = pveToggleState.split("=")[1] === "true";
   }
 
-  if (!/Mobi|Android/i.test(navigator.userAgent)) {
-    // Redirect all keypresses to the search box
-    document.addEventListener("keydown", function (event) {
-      if (!searchBox.contains(event.target)) {
-        searchBox.focus();
+  // Debounce function
+  function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  }
+
+  // Enhanced search function with debounce
+  const debouncedSearch = debounce(() => {
+    performSearch();
+  }, 250); // Adjust the delay as needed
+
+  // Simplify event listener attachments
+  const events = [
+    {
+      target: searchBox,
+      type: "focus",
+      action: () => {
+        body.classList.add("search-active");
+        searchBox.value = ""; // Clear the text in the search box on focus
+      },
+    },
+    {
+      target: searchBox,
+      type: "input",
+      action: debouncedSearch,
+    },
+    {
+      target: searchBox,
+      type: "click",
+      action: () => {
+        if (searchBox.value !== "") {
+          searchBox.value = ""; // Clear the text in the search box on click
+          performSearch();
+        }
+      },
+    },
+    {
+      target: searchBox,
+      type: "blur",
+      action: () => body.classList.remove("search-active"),
+    },
+    {
+      target: window,
+      type: "focus",
+      condition: () => !/Mobi|Android/i.test(navigator.userAgent),
+      action: () => searchBox.focus(),
+    },
+    {
+      target: document,
+      type: "keydown",
+      condition: () => !/Mobi|Android/i.test(navigator.userAgent),
+      action: (event) => {
+        if (!searchBox.contains(event.target)) searchBox.focus();
+      },
+    },
+  ];
+
+  events.forEach(({ target, type, condition, action }) => {
+    target.addEventListener(type, (event) => {
+      if (!condition || condition(event)) {
+        if (action) action(event);
       }
     });
-  }
+  });
 });
 
-function clearSearch() {
-  document.getElementById("searchBox").value = "";
-  performSearch(); // Call performSearch to update the results
-}
+async function performSearch() {
+  const query = document.getElementById("searchBox").value.trim();
+  const container = document.querySelector(".container");
+  const isPve = document.getElementById("pveToggle").checked;
 
-function performSearch() {
-  let query = document.getElementById("searchBox").value;
-  let container = document.querySelector(".container");
-
-  // If the search box is empty, display the map bosses
-  if (query.trim() === "") {
+  if (!query) {
     displayMapBosses();
     return;
   }
 
-  fetch(`/search?query=${encodeURIComponent(query)}`)
-    .then((response) => response.json())
-    .then((data) => {
-      let resultsContainer = document.getElementById("results");
-      resultsContainer.innerHTML = "";
-      resultsContainer.className = "results-container";
+  try {
+    const response = await fetch(
+      `/search?query=${encodeURIComponent(query)}&pve=${isPve}`
+    );
+    const data = await response.json();
+    updateSearchResults(data, container);
+  } catch (error) {
+    console.error("Error:", error);
+  }
+}
 
-      if (data.items.length === 0) {
-        // If there are no results, add a class to the container to move it up
-        container.classList.add("top");
-      } else {
-        // If there are results, remove the class that moves the container up
-        container.classList.remove("top");
-      }
+function updateSearchResults(data, container) {
+  const resultsContainer = document.getElementById("results");
+  resultsContainer.innerHTML = "";
+  resultsContainer.className = "results-container";
 
-      data.items.forEach((item) => {
-        let itemCard = document.createElement("div");
-        itemCard.classList.add("item-card");
+  container.classList.toggle("top", data.items.length === 0);
 
-        let icon = document.createElement("img");
-        icon.src = item.icon;
-        icon.alt = "Item Icon";
-        icon.classList.add("item-icon");
-        itemCard.appendChild(icon);
+  data.items.forEach((item) => {
+    const itemCard = createItemCard(item);
+    resultsContainer.appendChild(itemCard);
+  });
+}
 
-        let shortName = document.createElement("p");
-        shortName.textContent = item.shortName;
-        shortName.classList.add("item-name");
-        itemCard.appendChild(shortName);
+function createItemCard(item) {
+  const itemCard = document.createElement("div");
+  itemCard.classList.add("item-card");
+  itemCard.innerHTML = `
+    <img src="${item.icon}" alt="Item Icon" class="item-icon">
+    <p class="item-name">${item.shortName}</p>
+    <p class="price">${formatPrice(item.price)}</p>
+    <p class="trader-info">${
+      item.traderPriceCur
+    } ${item.traderPrice.toLocaleString()}<span class="trader-name"> - ${
+    item.traderName
+  }</span></p>
+    <hr class="divider">
+  `;
+  return itemCard;
+}
 
-        let priceNode = document.createElement("p");
-        let price = new Intl.NumberFormat("en-US", {
-          style: "currency",
-          currency: "RUB",
-          minimumFractionDigits: 0,
-          maximumFractionDigits: 0,
-        }).format(item.price);
-        priceNode.textContent = "₽" + price.substring(3).replace(/,/g, ",");
-        priceNode.classList.add("price");
-        itemCard.appendChild(priceNode);
-
-        let traderInfo = document.createElement("p");
-        let traderPrice = item.traderPrice.toLocaleString();
-        traderInfo.innerHTML =
-          item.traderPriceCur +
-          " " +
-          traderPrice +
-          '<span class="trader-name">' +
-          " - " +
-          item.traderName +
-          "</span>";
-        traderInfo.classList.add("trader-info");
-        itemCard.appendChild(traderInfo);
-
-        // Add horizontal line as a divider
-        let divider = document.createElement("hr");
-        divider.classList.add("divider");
-        itemCard.appendChild(divider);
-
-        resultsContainer.appendChild(itemCard);
-      });
-    })
-    .catch((error) => {
-      console.error("Error:", error);
-    });
+function formatPrice(price) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "RUB",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  })
+    .format(price)
+    .substring(3)
+    .replace(/,/g, ",");
 }
 
 function displayMapBosses() {
   fetch("/map_bosses")
     .then((response) => response.json())
     .then((data) => {
-      let resultsContainer = document.getElementById("results");
-      resultsContainer.innerHTML = ""; // Clear the results container
-
-      let title = document.createElement("h5");
-      title.textContent = "Boss Spawn Chances";
-      resultsContainer.appendChild(title);
-
-      let table = document.createElement("table");
-      table.classList.add("boss-table");
-
-      for (let mapName in data) {
-        let mapRow = document.createElement("tr");
-
-        let mapHeader = document.createElement("th");
-        mapHeader.textContent = mapName;
-        mapRow.appendChild(mapHeader);
-
-        for (let boss of data[mapName]) {
-          let bossCell = document.createElement("td");
-          bossCell.textContent = `${boss[0]} \n${boss[1]}%`;
-          mapRow.appendChild(bossCell);
-        }
-
-        table.appendChild(mapRow);
-      }
-
-      resultsContainer.appendChild(table);
+      // console.log(JSON.stringify(data)); // Print the full JSON to the console
+      const resultsContainer = document.getElementById("results");
+      resultsContainer.innerHTML =
+        "<h5>Boss Spawn Chances</h5>" + createBossTable(data);
     })
-    .catch((error) => {
-      console.error("Error:", error);
-    });
+    .catch((error) => console.error("Error:", error));
+}
+
+function createBossTable(data) {
+  let tableHTML = '<table class="boss-table">';
+  for (let mapName in data) {
+    tableHTML += `<tr><th>${mapName}</th>${data[mapName]
+      .map((boss) => `<td>${boss[0]} \n${boss[1]}%</td>`)
+      .join("")}</tr>`;
+  }
+  tableHTML += "</table>";
+  return tableHTML;
 }
